@@ -56,7 +56,6 @@ module.exports.getAllStories = async ({
       $count: "count",
     },
   ]);
-  console.log(allStoriesCount);
 
   return {
     allStories,
