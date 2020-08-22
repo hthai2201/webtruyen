@@ -48,7 +48,20 @@ module.exports.getAllStories = async ({
       $limit: limit,
     },
   ]);
-  return allStories;
+  let [{ count = 0 } = {}] = await storyModel.aggregate([
+    {
+      $match,
+    },
+    {
+      $count: "count",
+    },
+  ]);
+  console.log(allStoriesCount);
+
+  return {
+    allStories,
+    pageCount: count / limit,
+  };
 };
 module.exports.getAllStoriesHot = async ({
   searchWords,
@@ -187,6 +200,13 @@ module.exports.getStory = async (
   let story = await storyModel.aggregate([
     {
       $match: { slug },
+    },
+    {
+      $addFields: {
+        chapterCount: {
+          $size: "$chapters",
+        },
+      },
     },
     {
       $unwind: "$chapters",

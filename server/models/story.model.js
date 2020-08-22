@@ -81,7 +81,7 @@ storySchema.index(
     desc: "text",
 
     author: "text",
-    "categories.name": "text",
+
   },
   { name: "story_fts_index" }
 );
