@@ -161,6 +161,11 @@ module.exports.getAllStoriesNewChapter = async ({
         chapter: "$chapters",
       },
     },
+    {
+      $project: {
+        chapters: 0,
+      },
+    },
     { $sort },
 
     {
@@ -179,15 +184,37 @@ module.exports.getStory = async (
   if (!slug) {
     throw new Error("slug not founđ");
   }
-  let story = await storyModel.findOne(
-    { slug },
-    { chapters: { $slice: [(page - 1) * limit, limit] } }
-  );
+  let story = await storyModel.aggregate([
+    {
+      $match: { slug },
+    },
+    {
+      $unwind: "$chapters",
+    },
+    {
+      $sort: {
+        "chapters.chapterId": -1,
+      },
+    },
+    {
+      $limit: 1,
+    },
+    {
+      $project: {
+        chapters: 0,
+      },
+    },
+    {
+      $addFields: {
+        lastChapter: "$chapters",
+      },
+    },
+  ]);
   if (!story) {
     throw new Error("story not found");
   }
 
-  return story.toPlain();
+  return story[0];
 };
 module.exports.getStoryChapter = async (slug, chapterId) => {
   chapterId = parseInt(chapterId);
