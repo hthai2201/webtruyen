@@ -59,7 +59,7 @@ module.exports.getAllStories = async ({
 
   return {
     allStories,
-    pageCount: count / limit,
+    pageCount: Math.ceil(count / limit),
   };
 };
 module.exports.getAllStoriesHot = async ({
@@ -269,4 +269,17 @@ module.exports.delStory = async (slug) => {
   let chapterIds = story.chapters.map((i) => i._id);
   await chapterModel.deleteMany({ _id: chapterIds });
   return story.toPlain();
+};
+module.exports.downloadStory = async (slug) => {
+  if (!slug) {
+    throw new Error("slug not founđ");
+  }
+
+  let story = await storyModel.findOne({ slug }).lean();
+
+  if (!story) {
+    throw new Error("story not found");
+  }
+  story.lastChapter = story.chapters[story.chapters.length - 1];
+  return story;
 };

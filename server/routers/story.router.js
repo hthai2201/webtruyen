@@ -55,6 +55,17 @@ router.get("/new", async (req, res, next) => {
     });
   }
 });
+router.get("/download/:slug", async (req, res, next) => {
+  let { slug } = req.params;
+  try {
+    let story = await storyController.downloadStory(slug);
+    res.json(story);
+  } catch (error) {
+    res.json({
+      errors: error.toString(),
+    });
+  }
+});
 router.get("/:slug", async (req, res, next) => {
   let { slug } = req.params;
 
