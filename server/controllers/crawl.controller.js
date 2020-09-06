@@ -88,6 +88,7 @@ module.exports.crawlStory = async (url) => {
     // h1.title a.author ul.categories a
     let infoEl = $(".section-detail-info");
     let name = infoEl.find("h1.title").text();
+    let author = infoEl.find("a.author").text();
     let categories = [];
     infoEl.find("ul.categories").each(function (i, el) {
       let slug = $(el).find("a[href]").attr("href");
@@ -99,13 +100,20 @@ module.exports.crawlStory = async (url) => {
     let cover = infoEl.find(".img-responsive").attr("data-cfsrc");
     let desc = toTextWithRemoveBrTag($, ".truyencv-detail-tab .brief");
 
-    cb({ name, desc, cover, categories });
+    cb({ name, desc, cover, categories, author });
   };
   let result = await crawl(url, parseBodyStory);
 
-  let { name, desc, cover, categories } = result.length == 1 ? result[0] : {};
+  let { name, desc, cover, categories, author } =
+    result.length == 1 ? result[0] : {};
   categories = await categoryModel.find({ slug: categories }).lean();
-  let story = await storyModel.create({ name, desc, cover, categories });
+  let story = await storyModel.create({
+    name,
+    desc,
+    cover,
+    categories,
+    author,
+  });
   return story;
 };
 module.exports.crawlChapters = async (url, start = 1, end) => {
