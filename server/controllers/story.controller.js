@@ -252,8 +252,24 @@ module.exports.getStory = async (
       },
     },
   ]);
-
-  return { ...story, chapters: storyChapters ? storyChapters.chapters : [] };
+  let sameAuthorStories = await storyModel.aggregate([
+    {
+      $match: {
+        author: story.author,
+        slug: { $ne: story.slug },
+      },
+    },
+    {
+      $project: {
+        chapters: 0,
+      },
+    },
+  ]);
+  return {
+    ...story,
+    chapters: storyChapters ? storyChapters.chapters : [],
+    sameAuthorStories,
+  };
 };
 module.exports.getStoryChapter = async (slug, chapterId) => {
   chapterId = parseInt(chapterId);
