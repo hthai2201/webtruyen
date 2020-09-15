@@ -86,7 +86,12 @@ router.get("/:slug/chuong-:chapterId", async (req, res, next) => {
   let { slug, chapterId } = req.params;
 
   try {
+    req.session.historyStories = req.session.historyStories || [];
     let chapter = await storyController.getStoryChapter(slug, chapterId);
+    let { story, name } = chapter;
+    let lastReadChapter = { chapterId: chapter.chapterId, name };
+    story = { slug: story.slug, name: story.name, lastReadChapter };
+    req.session.historyStories.push(story);
     res.json(chapter);
   } catch (error) {
     res.json({
@@ -101,6 +106,27 @@ router.delete("/:slug", async (req, res, next) => {
   try {
     let story = await storyController.delStory(slug);
     res.json(story);
+  } catch (error) {
+    res.json({
+      errors: error.toString(),
+    });
+  }
+});
+router.post("/:slug/rate", async (req, res, next) => {
+  let { slug } = req.params;
+  let { rate } = req.body;
+
+  try {
+    let { ratedStories = [] } = req.session;
+    let checkRate = ratedStories.find((item) => item.slug == slug);
+    if (checkRate) {
+      res.json({ errors: "Current User was rated this story" });
+    } else {
+      let story = await storyController.rateStory(slug, rate);
+      ratedStories.push({ slug, rate });
+      req.session.ratedStories = ratedStories;
+      res.json(story);
+    }
   } catch (error) {
     res.json({
       errors: error.toString(),

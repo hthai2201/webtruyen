@@ -52,12 +52,7 @@ const storySchema = new mongoose.Schema(
     categories: [],
     tags: [],
     comments: [],
-    rate: [
-      {
-        type: mongoose.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    rate: [],
     vote: [
       {
         type: mongoose.Types.ObjectId,
@@ -81,7 +76,6 @@ storySchema.index(
     desc: "text",
 
     author: "text",
-
   },
   { name: "story_fts_index" }
 );

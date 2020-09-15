@@ -1,78 +1,14 @@
-const Crawler = require("crawler");
-const cheerio = require("cheerio");
-const { storyModel, chapterModel, categoryModel } = require("../models");
-//
-const toTextWithRemoveBrTag = ($, selector) => {
-  let content = $(selector).html() || "";
-  content = content.replace(/<br\s*\/?>/gm, "\n");
-  content = cheerio.load(content).text();
-  return content;
-};
-const toStorySlug = (url = "") => {
-  if (url[url.length - 1] == "/") {
-    url = url.slice(0, url.length - 1);
-  }
-
-  return url.slice(url.lastIndexOf("/") + 1);
-};
-const cheerioOptions = {
-  withDomLvl1: true,
-  normalizeWhitespace: false,
-  xmlMode: true,
-  decodeEntities: false,
-};
-const crawlerOptions = {
-  rateLimit: "1000",
-  jQuery: false,
-};
-let crawl = async (urls, cb) => {
-  urls = urls instanceof Array ? urls : [urls];
-
-  let result = await Promise.all(
-    urls.map(async (url) => {
-      try {
-        let a = await new Promise((rs, rj) => {
-          crawlerOptions.callback = function (err, res, done) {
-            if (err) {
-              rj(err);
-            }
-            cb(res.body, rs, rj);
-            done();
-          };
-          var c = new Crawler(crawlerOptions);
-
-          c.queue(url);
-        });
-
-        return a;
-      } catch (error) {
-        return {
-          errors: error.toString(),
-          url,
-        };
-      }
-    })
-  );
-  return result;
-};
-
-//module
 module.exports.crawlCategories = async (url) => {
   //parse
   const parseBodyCategories = (body, cb) => {
     let $ = cheerio.load(body, cheerioOptions);
     let allCategories = [];
+    $(".navbar-category-list a[title]").each(function (i, el) {
+      let name = $(el).text().trim();
+      let slug = toStorySlug($(el).attr("href"));
 
-    $(".navbar .navbar-category-list")
-      .last()
-      .find("li a")
-      .each(function (i, el) {
-        let name = $(el).text().trim();
-        let slug = toStorySlug($(el).attr("href"));
-
-        allCategories.push({ name, slug });
-      });
-    console.log(allCategories);
+      allCategories.push({ name, slug });
+    });
     cb(allCategories);
   };
   let result = await crawl(url, parseBodyCategories);
@@ -91,51 +27,34 @@ module.exports.crawlStory = async (url) => {
   //parse
   const parseBodyStory = (body, cb) => {
     let $ = cheerio.load(body, cheerioOptions);
-
-    let infoEl = $(".col-info-desc");
-
-    let cover = infoEl.find(" img").attr("data-cfsrc");
-    let author = infoEl.find(".info [itemprop='author']").text();
-    let name = infoEl.find("h3.title").text();
-    let desc = toTextWithRemoveBrTag($, ".col-info-desc .desc-text");
+    // h1.title a.author ul.categories a
+    let infoEl = $(".section-detail-info");
+    let name = infoEl.find("h1.title").text();
+    let author = infoEl.find("a.author").text();
     let categories = [];
-    infoEl.find(".info [itemprop='genre']").each(function (i, el) {
-      let slug = $(el).attr("href");
-      let name = $(el).text();
+    infoEl.find("ul.categories").each(function (i, el) {
+      let slug = $(el).find("a[href]").attr("href");
+
       slug = slug.slice(0, slug.length - 1);
       slug = slug.slice(slug.lastIndexOf("/") + 1);
-      categories.push({ name, slug });
+      categories.push(slug);
     });
-    let creator = infoEl.find(".info .source").text();
-    console.log(creator);
+    let cover = infoEl.find(".img-responsive").attr("data-cfsrc");
+    let desc = toTextWithRemoveBrTag($, ".truyencv-detail-tab .brief");
 
-    cb({ name, desc, cover, categories, author, creator });
-    return null;
+    cb({ name, desc, cover, categories, author });
   };
   let result = await crawl(url, parseBodyStory);
 
-  let { name, desc, cover, categories, author, creator } =
+  let { name, desc, cover, categories, author } =
     result.length == 1 ? result[0] : {};
-  categories = await Promise.all(
-    categories.map(async (category) => {
-      let curCategory = await categoryModel
-        .findOne({ slug: category.slug })
-        .lean();
-      if (!curCategory) {
-        curCategory = new categoryModel(category);
-        await curCategory.save();
-      }
-      return curCategory;
-    })
-  );
-
+  categories = await categoryModel.find({ slug: categories }).lean();
   let story = await storyModel.create({
     name,
     desc,
     cover,
     categories,
     author,
-    creator,
   });
   return story;
 };
@@ -149,15 +68,17 @@ module.exports.crawlChapters = async (url, start = 1, end) => {
   const parseBodyChapter = (body, cb) => {
     let $ = cheerio.load(body, cheerioOptions);
     //
-    let content = toTextWithRemoveBrTag($, ".chapter-c");
-    let [chapterId = "", name = ""] = $(".chapter-title").text().split(":");
+    let content = toTextWithRemoveBrTag($, ".truyencv-read-content .content");
+    let [chapterId = "", name = ""] = $(".truyencv-read-content .title")
+      .text()
+      .split(":");
     name = name.trim();
     chapterId = chapterId.match(/[0-9]+$/i);
     chapterId = chapterId instanceof Array ? chapterId[0] : "";
     chapterId = parseInt(chapterId);
-    console.log(chapterId, name);
+    let words = content.trim().split(/\n+/).length;
 
-    cb({ chapterId, name, content });
+    cb({ chapterId, name, content, words });
   };
   //get story
   let slug = toStorySlug(url);
@@ -173,7 +94,6 @@ module.exports.crawlChapters = async (url, start = 1, end) => {
     let urls = Array.from(Array(end), (_, i) => `${url}chuong-${i + start}/`);
 
     let result = await crawl(urls, parseBodyChapter);
-
     let chapters = await Promise.all(
       result.map(async ({ chapterId, name, content, words }) => {
         try {

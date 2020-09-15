@@ -196,7 +196,7 @@ module.exports.getStory = async (
   if (!slug) {
     throw new Error("slug not founđ");
   }
-  let story = await storyModel.aggregate([
+  let [story] = await storyModel.aggregate([
     {
       $match: { slug },
     },
@@ -211,6 +211,11 @@ module.exports.getStory = async (
       $unwind: "$chapters",
     },
     {
+      $project: {
+        "chapters.content": 0,
+      },
+    },
+    {
       $sort: {
         "chapters.chapterId": -1,
       },
@@ -219,21 +224,36 @@ module.exports.getStory = async (
       $limit: 1,
     },
     {
-      $project: {
-        chapters: 0,
+      $addFields: {
+        lastChapter: "$chapters",
       },
     },
     {
-      $addFields: {
-        lastChapter: "$chapters",
+      $project: {
+        chapters: 0,
       },
     },
   ]);
   if (!story) {
     throw new Error("story not found");
   }
+  let [storyChapters] = await storyModel.aggregate([
+    {
+      $match: { slug },
+    },
+    {
+      $project: {
+        "chapters.content": 0,
+      },
+    },
+    {
+      $project: {
+        chapters: 1,
+      },
+    },
+  ]);
 
-  return story[0];
+  return { ...story, chapters: storyChapters ? storyChapters.chapters : [] };
 };
 module.exports.getStoryChapter = async (slug, chapterId) => {
   chapterId = parseInt(chapterId);
@@ -245,16 +265,21 @@ module.exports.getStoryChapter = async (slug, chapterId) => {
     throw new Error("chapter not founđ");
   }
 
-  let story = await storyModel.aggregate([
-    { $match: { slug } },
-    { $unwind: "$chapters" },
-    { $match: { "chapters.chapterId": chapterId } },
+  let [story] = await storyModel.aggregate([
+    { $match: { slug, "chapters.chapterId": chapterId } },
   ]);
-  if (!story[0]) {
+  if (!story) {
     throw new Error("chapter not found");
   }
-
-  return story[0].chapters;
+  let chapter = {};
+  story.chapters = story.chapters.map((item) => {
+    if (item.chapterId == chapterId) {
+      chapter = { ...item };
+    }
+    delete item.content;
+    return item;
+  });
+  return { ...chapter, story };
 };
 module.exports.delStory = async (slug) => {
   if (!slug) {
@@ -282,4 +307,21 @@ module.exports.downloadStory = async (slug) => {
   }
   story.lastChapter = story.chapters[story.chapters.length - 1];
   return story;
+};
+module.exports.rateStory = async (slug, rate) => {
+  rate = parseInt(rate);
+  if (!rate) {
+    throw new Error("Rate invalid");
+  }
+
+  let result = await storyModel.updateOne(
+    { slug },
+    { $push: { rate: { rate } } }
+  );
+  console.log(result);
+  if (!result) {
+    throw new Error("story not found");
+  }
+
+  return null;
 };
