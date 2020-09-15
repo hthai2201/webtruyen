@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { storyController } = require("../controllers");
+const { storyController, sessionController } = require("../controllers");
 router.get("/", async (req, res, next) => {
   let { searchWords, page = 1, limit, tagSlug, categorySlug, full } = req.query;
   try {
@@ -84,14 +84,26 @@ router.get("/:slug", async (req, res, next) => {
 });
 router.get("/:slug/chuong-:chapterId", async (req, res, next) => {
   let { slug, chapterId } = req.params;
+  let { SSID } = req.query;
 
   try {
-    req.session.historyStories = req.session.historyStories || [];
+    let session = await sessionController.getSession(SSID);
+
+    let { historyStories = [] } = session;
     let chapter = await storyController.getStoryChapter(slug, chapterId);
     let { story, name } = chapter;
     let lastReadChapter = { chapterId: chapter.chapterId, name };
     story = { slug: story.slug, name: story.name, lastReadChapter };
-    req.session.historyStories.push(story);
+    let existHistoryStoryIndex = historyStories.findIndex(
+      (item) => item.slug == story.slug
+    );
+    if (existHistoryStoryIndex !== -1) {
+      historyStories[existHistoryStoryIndex] = story;
+    } else {
+      historyStories.push(story);
+    }
+
+    await sessionController.setSession(SSID, { historyStories });
     res.json(chapter);
   } catch (error) {
     res.json({
@@ -114,18 +126,29 @@ router.delete("/:slug", async (req, res, next) => {
 });
 router.post("/:slug/rate", async (req, res, next) => {
   let { slug } = req.params;
-  let { rate } = req.body;
+  let { rate, SSID } = req.body;
 
   try {
-    let { ratedStories = [] } = req.session;
+    let session = await sessionController.getSession(SSID);
+    let { ratedStories = [] } = session;
     let checkRate = ratedStories.find((item) => item.slug == slug);
     if (checkRate) {
       res.json({ errors: "Current User was rated this story" });
     } else {
-      let story = await storyController.rateStory(slug, rate);
-      ratedStories.push({ slug, rate });
-      req.session.ratedStories = ratedStories;
-      res.json(story);
+      await storyController.rateStory(slug, rate);
+
+      let existRatedStoryIndex = ratedStories.findIndex(
+        (item) => item.slug === slug
+      );
+      if (existRatedStoryIndex !== -1) {
+        ratedStories[existRatedStoryIndex] = { slug, rate };
+      } else {
+        console.log({ slug, rate });
+        ratedStories.push({ slug, rate });
+      }
+
+      await sessionController.setSession(SSID, { ratedStories });
+      res.json(null);
     }
   } catch (error) {
     res.json({

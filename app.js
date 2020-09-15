@@ -6,8 +6,6 @@ const bodyParser = require("body-parser");
 const http = require("http");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const session = require("express-session");
-const MongoStore = require("connect-mongo")(session);
 //dotenv
 require("dotenv").config();
 
@@ -28,12 +26,6 @@ app.use(logger("dev"));
 app.use(express.static("public"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(
-  session({
-    secret: "foo",
-    store: new MongoStore({ mongooseConnection: mongoose.connection }),
-  })
-);
 
 app.use("/", router);
 const PORT = process.env.PORT || 8080;

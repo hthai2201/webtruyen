@@ -72,7 +72,7 @@ module.exports.crawlCategories = async (url) => {
 
         allCategories.push({ name, slug });
       });
-    console.log(allCategories);
+
     cb(allCategories);
   };
   let result = await crawl(url, parseBodyCategories);
@@ -107,7 +107,6 @@ module.exports.crawlStory = async (url) => {
       categories.push({ name, slug });
     });
     let creator = infoEl.find(".info .source").text();
-    console.log(creator);
 
     cb({ name, desc, cover, categories, author, creator });
     return null;
@@ -155,7 +154,6 @@ module.exports.crawlChapters = async (url, start = 1, end) => {
     chapterId = chapterId.match(/[0-9]+$/i);
     chapterId = chapterId instanceof Array ? chapterId[0] : "";
     chapterId = parseInt(chapterId);
-    console.log(chapterId, name);
 
     cb({ chapterId, name, content });
   };

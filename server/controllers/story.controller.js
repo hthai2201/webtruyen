@@ -11,7 +11,7 @@ module.exports.getAllStories = async ({
   limit = pageConfig.limit,
 }) => {
   let $match = {};
-  let $sort = { view: -1 };
+  let $sort = { createdAt: -1 };
   if (searchWords) {
     $match.$text = { $search: searchWords };
     $sort = { score: { $meta: "textScore" } };
@@ -334,8 +334,8 @@ module.exports.rateStory = async (slug, rate) => {
     { slug },
     { $push: { rate: { rate } } }
   );
-  console.log(result);
-  if (!result) {
+
+  if (!result || !result.nModified) {
     throw new Error("story not found");
   }
 

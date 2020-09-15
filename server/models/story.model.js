@@ -88,7 +88,7 @@ storySchema.virtual("new").get(function () {
   let now = moment();
   let create = moment(this.createdAt);
   let diff = now.diff(create, "days");
-  console.log(diff);
+
   return diff < 30;
 });
 //statics
