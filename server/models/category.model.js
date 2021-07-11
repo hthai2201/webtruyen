@@ -39,3 +39,4 @@ categorySchema.methods.toPlain = function () {
 const Category = mongoose.model("Category", categorySchema, "categories");
 
 module.exports = Category;
+.// t===]
